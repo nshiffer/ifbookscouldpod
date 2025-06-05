@@ -371,6 +371,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('If Books Could Kill website loaded successfully!');
+    
+    // Initialize transcript search functionality
+    initTranscriptSearch();
 });
 
 // Function to load latest episodes from RSS feed
@@ -380,107 +383,126 @@ async function loadLatestEpisodes() {
     const loadingIndicator = document.getElementById('episodes-loading');
     
     // Show loading indicator
-    loadingIndicator.style.display = 'block';
-    episodesContainer.style.opacity = '0.5';
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+    }
+    if (episodesContainer) {
+        episodesContainer.style.opacity = '0.5';
+    }
     
     try {
-        // Try to fetch from RSS feed using a CORS proxy
-        const rssUrl = 'https://feeds.buzzsprout.com/2040953.rss';
-        const corsProxy = 'https://api.allorigins.win/raw?url=';
+        // Use the same Buzzsprout endpoint as search but with empty query to get all episodes
+        const episodesUrl = `${BUZZSPROUT_SEARCH_URL}?utf8=%E2%9C%93&q=&commit=Search`;
+        const proxyUrl = `${CORS_PROXY}${encodeURIComponent(episodesUrl)}`;
         
-        const response = await fetch(corsProxy + encodeURIComponent(rssUrl));
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
         
         if (!response.ok) {
-            throw new Error('Failed to fetch RSS feed');
+            throw new Error('Failed to fetch episodes from Buzzsprout');
         }
         
-        const rssText = await response.text();
+        // Parse the HTML response using the same logic as search
+        const htmlContent = data.contents;
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(rssText, 'text/xml');
+        const doc = parser.parseFromString(htmlContent, 'text/html');
         
-        // Parse RSS items
-        const items = xmlDoc.querySelectorAll('item');
+        const episodeElements = doc.querySelectorAll('#episodes_list > div[id^="episode_"]');
         const episodes = [];
         
         // Get the first 3 episodes
-        for (let i = 0; i < Math.min(3, items.length); i++) {
-            const item = items[i];
-            const title = item.querySelector('title')?.textContent || 'Episode Title';
-            const pubDate = item.querySelector('pubDate')?.textContent || '';
-            const description = item.querySelector('description')?.textContent || '';
-            const link = item.querySelector('link')?.textContent || 'https://open.spotify.com/show/2khJBoF73ujIATWUFtSxLD';
+        for (let i = 0; i < Math.min(3, episodeElements.length); i++) {
+            const element = episodeElements[i];
+            const titleElement = element.querySelector('h3');
+            const linkElement = element.querySelector('a[href*="/episodes/"]');
+            const descriptionElement = element.querySelector('.py-2');
+            const timeElement = element.querySelector('time');
             
-            // Parse the date
-            const date = new Date(pubDate);
-            const formattedDate = date.toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            });
-            
-            // Extract book author from title or description
-            let author = '';
-            let cleanTitle = title;
-            
-            // Handle specific episode patterns
-            if (title.includes('TEASER')) {
-                author = 'Premium Preview';
-                cleanTitle = title;
-            } else if (title.includes('"') && title.includes('"')) {
-                // Extract book title in quotes and author
-                const bookMatch = title.match(/"([^"]+)"/);
-                const authorMatch = title.match(/by\s+([^,\n\[\]]+)/i) || 
-                                  description.match(/by\s+([^,\n\.]+)/i);
+            if (titleElement && linkElement) {
+                const title = titleElement.textContent.trim();
+                const url = 'https://www.buzzsprout.com' + linkElement.getAttribute('href');
+                const description = descriptionElement ? descriptionElement.textContent.trim() : '';
+                const dateText = timeElement ? timeElement.getAttribute('datetime') || timeElement.textContent.trim() : '';
                 
-                if (bookMatch) {
-                    cleanTitle = bookMatch[1];
+                // Parse and format the date
+                let formattedDate = dateText;
+                try {
+                    const date = new Date(dateText);
+                    if (!isNaN(date.getTime())) {
+                        formattedDate = date.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        });
+                    }
+                } catch (e) {
+                    // Keep original date text if parsing fails
                 }
-                if (authorMatch) {
-                    author = `by ${authorMatch[1].trim()}`;
-                }
-            } else {
-                // General patterns for book analysis episodes
-                const patterns = [
-                    /^([^:]+):\s*(.+)$/,  // "Topic: Description" format
-                    /^(.+?)\s+by\s+(.+)$/i,  // "Title by Author" format
-                ];
                 
-                for (const pattern of patterns) {
-                    const match = title.match(pattern);
-                    if (match) {
-                        if (pattern.source.includes('by')) {
-                            cleanTitle = match[1].trim();
-                            author = `by ${match[2].trim()}`;
+                // Extract book author from title or description
+                let author = '';
+                let cleanTitle = title;
+                
+                // Handle specific episode patterns
+                if (title.includes('TEASER')) {
+                    author = "Preview";
+                    cleanTitle = title;
+                } else if (title.includes('"') && title.includes('"')) {
+                    // Extract book title in quotes and author
+                    const bookMatch = title.match(/"([^"]+)"/);
+                    const authorMatch = title.match(/by\s+([^,\n\[\]]+)/i) || 
+                                      description.match(/by\s+([^,\n\.]+)/i);
+                    
+                    if (bookMatch) {
+                        cleanTitle = bookMatch[1];
+                    }
+                    if (authorMatch) {
+                        author = `by ${authorMatch[1].trim()}`;
+                    }
+                } else {
+                    // General patterns for book analysis episodes
+                    const patterns = [
+                        /^([^:]+):\s*(.+)$/,  // "Topic: Description" format
+                        /^(.+?)\s+by\s+(.+)$/i,  // "Title by Author" format
+                    ];
+                    
+                    for (const pattern of patterns) {
+                        const match = title.match(pattern);
+                        if (match) {
+                            if (pattern.source.includes('by')) {
+                                cleanTitle = match[1].trim();
+                                author = `by ${match[2].trim()}`;
+                            }
+                            break;
                         }
-                        break;
                     }
                 }
-            }
-            
-            // If no author found, try description
-            if (!author && description) {
-                const descMatch = description.match(/by\s+([^,\n\.]+)/i);
-                if (descMatch) {
-                    author = `by ${descMatch[1].trim()}`;
+                
+                // If no author found, try description
+                if (!author && description) {
+                    const descMatch = description.match(/by\s+([^,\n\.]+)/i);
+                    if (descMatch) {
+                        author = `by ${descMatch[1].trim()}`;
+                    }
                 }
+                
+                // Fallback for episodes without clear book authors
+                if (!author) {
+                    author = 'Podcast';
+                }
+                
+                episodes.push({
+                    number: i + 1,
+                    title: cleanTitle,
+                    author: author,
+                    date: formattedDate,
+                    url: url
+                });
             }
-            
-            // Fallback for episodes without clear book authors
-            if (!author) {
-                author = 'Analysis & Commentary';
-            }
-            
-            episodes.push({
-                number: i + 1,
-                title: cleanTitle,
-                author: author,
-                date: formattedDate,
-                link: link
-            });
         }
         
         // Clear existing content and add new episodes
-        if (episodes.length > 0) {
+        if (episodes.length > 0 && episodesContainer) {
             episodesContainer.innerHTML = '';
             
             episodes.forEach((episode, index) => {
@@ -491,7 +513,7 @@ async function loadLatestEpisodes() {
                             <h3 class="episode-title">${episode.title}</h3>
                             <p class="episode-author">${episode.author}</p>
                             <p class="episode-date">${episode.date}</p>
-                            <a href="https://open.spotify.com/show/2khJBoF73ujIATWUFtSxLD" class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener">Listen Now</a>
+                            <a href="${episode.url}" class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener">Listen Now</a>
                         </div>
                     </div>
                 `;
@@ -506,68 +528,221 @@ async function loadLatestEpisodes() {
                 }, index * 100);
             });
             
-            console.log('Successfully loaded latest episodes from RSS feed');
+            console.log('Successfully loaded latest episodes from Buzzsprout');
         } else {
-            throw new Error('No episodes found in RSS feed');
+            throw new Error('No episodes found');
         }
         
     } catch (error) {
         console.log('Failed to load dynamic episodes, using fallback content:', error.message);
         
         // Show fallback episodes if dynamic loading fails
-        fallbackEpisodes.forEach((episode, index) => {
-            setTimeout(() => {
-                episode.classList.add('fade-in');
-            }, index * 100);
-        });
-    } finally {
-        // Hide loading indicator
-        loadingIndicator.style.display = 'none';
-        episodesContainer.style.opacity = '1';
-    }
-}
-
-// Alternative function to try loading from Buzzsprout API (if available)
-async function tryBuzzsproutAPI() {
-    try {
-        // This is a hypothetical API endpoint - Buzzsprout may not provide public API
-        const response = await fetch('https://www.buzzsprout.com/api/2040953/episodes.json');
-        
-        if (!response.ok) {
-            throw new Error('Buzzsprout API not available');
-        }
-        
-        const data = await response.json();
-        return data.episodes || [];
-    } catch (error) {
-        console.log('Buzzsprout API not available:', error.message);
-        return [];
-    }
-}
-
-// Function to extract episode data from HTML content (if needed)
-function parseEpisodeFromHTML(htmlContent) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, 'text/html');
-    
-    // This would need to be customized based on Buzzsprout's HTML structure
-    const episodes = [];
-    const episodeElements = doc.querySelectorAll('.episode-item'); // Hypothetical selector
-    
-    episodeElements.forEach((element, index) => {
-        if (index < 3) { // Only get first 3
-            const title = element.querySelector('.episode-title')?.textContent || '';
-            const date = element.querySelector('.episode-date')?.textContent || '';
-            const author = element.querySelector('.episode-author')?.textContent || '';
-            
-            episodes.push({
-                title,
-                author,
-                date,
-                number: index + 1
+        if (fallbackEpisodes) {
+            fallbackEpisodes.forEach((episode, index) => {
+                setTimeout(() => {
+                    episode.classList.add('fade-in');
+                }, index * 100);
             });
         }
+    } finally {
+        // Hide loading indicator
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+        if (episodesContainer) {
+            episodesContainer.style.opacity = '1';
+        }
+    }
+}
+
+
+
+// Buzzsprout Episode Search API
+const BUZZSPROUT_SEARCH_URL = 'https://www.buzzsprout.com/2040953/episodes';
+const CORS_PROXY = 'https://api.allorigins.win/get?url=';
+
+// Transcript Search Functionality
+function initTranscriptSearch() {
+    const searchInput = document.getElementById('transcriptSearch');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchResults = document.getElementById('searchResults');
+    const searchLoading = document.getElementById('searchLoading');
+    const noResults = document.getElementById('noResults');
+    const resultsContainer = document.getElementById('resultsContainer');
+
+    if (!searchInput || !searchBtn || !searchResults) {
+        console.log('Search elements not found');
+        return;
+    }
+
+    function performSearch() {
+        const query = searchInput.value.trim();
+        if (!query || query.length < 2) {
+            alert('Please enter at least 2 characters to search');
+            return;
+        }
+
+        // Hide all result containers
+        searchResults.classList.add('d-none');
+        noResults.classList.add('d-none');
+        
+        // Show loading
+        searchLoading.classList.remove('d-none');
+
+        // Simulate API delay for better UX
+        setTimeout(async () => {
+            const results = await searchEpisodes(query);
+            
+            searchLoading.classList.add('d-none');
+            
+            if (results.length > 0) {
+                displayResults(results, query);
+                searchResults.classList.remove('d-none');
+                
+                // Scroll to results
+                setTimeout(() => {
+                    searchResults.scrollIntoView({ 
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }, 100);
+            } else {
+                noResults.classList.remove('d-none');
+            }
+        }, 800);
+    }
+
+    // Search functionality
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
     });
-    
-    return episodes;
+
+    // Clear results when input is cleared
+    searchInput.addEventListener('input', function() {
+        if (this.value.trim() === '') {
+            searchResults.classList.add('d-none');
+            noResults.classList.add('d-none');
+            searchLoading.classList.add('d-none');
+        }
+    });
+
+    async function searchEpisodes(query) {
+        try {
+            // Use Buzzsprout's search API
+            const searchUrl = `${BUZZSPROUT_SEARCH_URL}?q=${encodeURIComponent(query)}`;
+            const proxyUrl = `${CORS_PROXY}${encodeURIComponent(searchUrl)}`;
+            
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error('Failed to search episodes');
+            }
+            
+            // Parse the HTML response
+            const htmlContent = data.contents;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, 'text/html');
+            
+            const results = [];
+            const episodeElements = doc.querySelectorAll('#episodes_list > div[id^="episode_"]');
+            
+            episodeElements.forEach(element => {
+                const titleElement = element.querySelector('h3');
+                const linkElement = element.querySelector('a[href*="/episodes/"]');
+                const descriptionElement = element.querySelector('.py-2');
+                const timeElement = element.querySelector('time');
+                
+                if (titleElement && linkElement) {
+                    const title = titleElement.textContent.trim();
+                    const url = 'https://www.buzzsprout.com' + linkElement.getAttribute('href');
+                    const description = descriptionElement ? descriptionElement.textContent.trim() : '';
+                    const dateText = timeElement ? timeElement.getAttribute('datetime') || timeElement.textContent.trim() : '';
+                    
+                    results.push({
+                        title,
+                        url,
+                        description,
+                        date: dateText,
+                        excerpt: description
+                    });
+                }
+            });
+            
+            return results;
+            
+        } catch (error) {
+            console.error('Error searching episodes:', error);
+            // Return fallback results if API fails
+            return [{
+                title: 'Search Unavailable',
+                url: BUZZSPROUT_SEARCH_URL,
+                description: 'Episode search is temporarily unavailable. Please visit the episodes page directly.',
+                date: new Date().toISOString().split('T')[0],
+                excerpt: 'Unable to search episodes at this time. The search functionality uses the Buzzsprout API which may be temporarily unavailable.'
+            }];
+        }
+    }
+
+    function displayResults(results, query) {
+        resultsContainer.innerHTML = '';
+
+        // Add results count
+        const countElement = document.createElement('div');
+        countElement.className = 'search-count mb-3';
+        countElement.innerHTML = `<small class="text-light">Found ${results.length} episode${results.length !== 1 ? 's' : ''} containing "${query}"</small>`;
+        resultsContainer.appendChild(countElement);
+
+        results.forEach((result, index) => {
+            const resultElement = createResultElement(result, query);
+            resultsContainer.appendChild(resultElement);
+            
+            // Add staggered animation
+            setTimeout(() => {
+                resultElement.classList.add('search-result-animate');
+            }, index * 100);
+        });
+    }
+
+    function createResultElement(result, query) {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'search-result';
+
+        // Highlight the search term in the excerpt
+        const highlightedExcerpt = highlightSearchTerm(result.excerpt, query);
+
+        resultDiv.innerHTML = `
+            <a href="${result.url}" class="result-episode-title" target="_blank" rel="noopener">
+                ${result.title}
+            </a>
+            <div class="result-episode-date">${result.date}</div>
+            <div class="result-transcript-excerpt">
+                ${highlightedExcerpt}
+            </div>
+            <div class="result-actions">
+                <a href="${result.url}" class="btn-read-transcript" target="_blank" rel="noopener">
+                    <i class="fas fa-external-link-alt me-1"></i>
+                    View Episode
+                </a>
+                <small class="text-muted">
+                    <i class="fas fa-quote-left me-1"></i>
+                    Found in episode
+                </small>
+            </div>
+        `;
+
+        return resultDiv;
+    }
+
+    function highlightSearchTerm(text, query) {
+        const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+        return text.replace(regex, '<span class="highlight">$1</span>');
+    }
+
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
 } 

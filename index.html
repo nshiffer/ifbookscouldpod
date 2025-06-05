@@ -286,6 +286,47 @@
                     <i class="fas fa-sync-alt"></i> Refresh Episodes
                 </button>
             </div>
+            
+            <!-- Episode Search Section -->
+            <div class="row mt-5">
+                <div class="col-lg-10 mx-auto text-center">
+                    <h3 class="section-title mb-4">Search Episodes</h3>
+                    <p class="section-subtitle mb-4">Search through episode titles, descriptions, and topics</p>
+                    
+                    <!-- Search Interface -->
+                    <div class="transcript-search-container mb-5">
+                        <div class="search-input-group">
+                            <input type="text" id="transcriptSearch" class="form-control search-input" placeholder="Search episode titles and descriptions..." autocomplete="off">
+                            <button id="searchBtn" class="btn btn-primary search-btn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <!-- Search Results -->
+                    <div id="searchResults" class="search-results d-none">
+                        <h4 class="mb-4">Search Results</h4>
+                        <div id="resultsContainer" class="results-container">
+                            <!-- Results will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="searchLoading" class="search-loading d-none">
+                        <div class="spinner"></div>
+                        <p>Searching episodes...</p>
+                    </div>
+
+                    <!-- No Results -->
+                    <div id="noResults" class="no-results d-none">
+                        <i class="fas fa-search-minus mb-3"></i>
+                        <p>No results found for your search.</p>
+                        <small>Try different keywords or check your spelling.</small>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </section>
 
@@ -295,9 +336,18 @@
             <div class="row">
                 <div class="col-lg-8 mx-auto text-center">
                     <h2 class="section-title">Transcripts</h2>
-                    <p class="mb-4">Transcripts are available on our <a href="https://www.buzzsprout.com/2040953" class="text-primary" target="_blank" rel="noopener">buzzsprout page</a>.</p>
-                    <p>Just select an episode and click "Transcript."</p>
-                    <a href="https://www.buzzsprout.com/2040953" class="btn btn-outline-primary" target="_blank" rel="noopener">Access Transcripts</a>
+                    <p class="section-subtitle mb-5">Transcripts are available on our Buzzsprout page.</p>
+                    
+                    <div class="transcript-info mb-4">
+                        <p class="lead">Just select an episode and click "Transcript."</p>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="https://www.buzzsprout.com/2040953/episodes" target="_blank" rel="noopener" class="btn btn-primary btn-lg">
+                            <i class="fas fa-file-text me-2"></i>
+                            View Episode Transcripts
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
