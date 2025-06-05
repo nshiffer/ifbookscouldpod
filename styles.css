@@ -632,6 +632,17 @@ h1, h2, h3, h4, h5, h6 {
     z-index: 1;
 }
 
+/* Equal height for episode cards */
+#episodes-container.row {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+#episodes-container > [class*="col-"] {
+    display: flex;
+    flex-direction: column;
+}
+
 /* Dynamic Episode Loading */
 .dynamic-episode {
     opacity: 0;
@@ -703,6 +714,10 @@ h1, h2, h3, h4, h5, h6 {
     z-index: 2;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 380px;
+    height: 100%;
 }
 
 .episode-card::before {
@@ -796,6 +811,7 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center;
     min-width: 140px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: auto;
 }
 
 .btn-outline-primary:hover {
@@ -1181,6 +1197,17 @@ h1, h2, h3, h4, h5, h6 {
     margin-top: 3rem;
 }
 
+/* Equal height for social cards */
+.social-media-grid .row {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.social-media-grid .row > [class*="col-"] {
+    display: flex;
+    flex-direction: column;
+}
+
 .social-card {
     background: var(--pure-white);
     padding: 2rem;
@@ -1190,6 +1217,10 @@ h1, h2, h3, h4, h5, h6 {
     text-align: center;
     position: relative;
     z-index: 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+    height: 100%;
 }
 
 .social-card:hover {
@@ -1219,6 +1250,7 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.9rem;
     margin: 0;
     line-height: 1.4;
+    margin-top: auto;
 }
 
 .social-card p a {
@@ -1328,7 +1360,28 @@ h1, h2, h3, h4, h5, h6 {
     }
 }
 
-/* Animations */
+/* Smooth Animations - Fix for card blinking/stuttering */
+.about-card,
+.host-card,
+.social-card {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.about-card.fade-in,
+.host-card.fade-in,
+.social-card.fade-in {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Episode cards have their own animation system */
+.episode-card {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .fade-in {
     animation: fadeInUp 0.6s ease-out;
 }

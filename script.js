@@ -41,22 +41,41 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Intersection Observer for animations
+    // Intersection Observer for smooth animations
     const observerOptions = {
-        threshold: 0.1,
+        threshold: 0.15,
         rootMargin: '0px 0px -50px 0px'
     };
     
+    // Track animated sections to provide proper staggering
+    const sectionAnimationTracker = new Map();
+    
     const observer = new IntersectionObserver(function(entries) {
         entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('fade-in');
+            if (entry.isIntersecting && !entry.target.classList.contains('fade-in')) {
+                // Get the section this card belongs to
+                const section = entry.target.closest('section') || entry.target.closest('.container');
+                const sectionId = section ? section.id || section.className : 'default';
+                
+                // Track how many cards in this section have been animated
+                if (!sectionAnimationTracker.has(sectionId)) {
+                    sectionAnimationTracker.set(sectionId, 0);
+                }
+                
+                const cardIndex = sectionAnimationTracker.get(sectionId);
+                const delay = cardIndex * 120; // 120ms delay between cards in same section
+                
+                setTimeout(() => {
+                    entry.target.classList.add('fade-in');
+                }, delay);
+                
+                sectionAnimationTracker.set(sectionId, cardIndex + 1);
             }
         });
     }, observerOptions);
     
-    // Observe elements for animations
-    const animateElements = document.querySelectorAll('.about-card, .host-card, .episode-card, .social-card');
+    // Observe elements for animations (excluding episode cards)
+    const animateElements = document.querySelectorAll('.about-card, .host-card, .social-card');
     animateElements.forEach(el => observer.observe(el));
     
     // Parallax effect for hero background
@@ -83,16 +102,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Add hover effects to cards
+    // Add hover effects to cards (improved to avoid animation conflicts)
     const cards = document.querySelectorAll('.about-card, .host-card, .episode-card, .social-card');
     
     cards.forEach(card => {
         card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-5px) scale(1.02)';
+            if (this.classList.contains('fade-in') || this.classList.contains('episode-card')) {
+                this.style.transform = 'translateY(-5px) scale(1.02)';
+            }
         });
         
         card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0) scale(1)';
+            if (this.classList.contains('fade-in') || this.classList.contains('episode-card')) {
+                this.style.transform = 'translateY(0) scale(1)';
+            }
         });
     });
     
