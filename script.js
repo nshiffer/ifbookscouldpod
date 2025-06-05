@@ -509,7 +509,7 @@ async function loadLatestEpisodes() {
                 const episodeHtml = `
                     <div class="col-lg-4 col-md-6 mb-4 dynamic-episode">
                         <div class="episode-card">
-                            <div class="episode-number">Latest ${index === 0 ? '' : index === 1 ? '2nd' : '3rd'}</div>
+                            <div class="episode-number">${index === 0 ? '' : index === 1 ? '2nd' : '3rd'} Latest</div>
                             <h3 class="episode-title">${episode.title}</h3>
                             <p class="episode-author">${episode.author}</p>
                             <p class="episode-date">${episode.date}</p>
